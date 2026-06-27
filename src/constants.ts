@@ -173,6 +173,11 @@ export const SELF_LEARNING_INSTRUCTIONS_PATH =
   ".github/instructions/self-learning.instructions.md";
 export const SELF_LEARNING_REGENERATOR_SCRIPT_PATH =
   ".github/scripts/regenerate-instructions.mjs";
+// Hook-driven capture. Reads the actual hook payloads (prompts, tool
+// results, errors) instead of the slugs lean-ctx exposes. See the README's
+// "Self-learning" section for the data-source tradeoff.
+export const SELF_LEARNING_CAPTURE_SCRIPT_PATH =
+  ".github/scripts/capture-session.mjs";
 // Front matter for the self-learning instructions file. `applyTo: "**"` per
 // the VS Code custom-instructions convention — learned patterns must be
 // available at the start of every task, not just those whose description

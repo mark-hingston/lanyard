@@ -68,3 +68,15 @@ export const REGENERATE_INSTRUCTIONS_SCRIPT = readFileSync(
   join(SCRIPTS_DIR, "regenerate-instructions.mjs"),
   "utf8",
 );
+
+// Hook-driven self-learning capture. Reads the actual Copilot CLI hook
+// payloads (user prompts, tool results, errors) — strictly richer than the
+// lean-ctx events regenerate-instructions.mjs mines, because it has the
+// actual prompt and error text instead of just slugs. Writes a managed
+// `<!-- managed-by:hooks start/end -->` block in the same instructions file;
+// capture-session runs last on sessionEnd so its block wins over any
+// lanyard-block the lean-ctx miner produced.
+export const CAPTURE_SESSION_SCRIPT = readFileSync(
+  join(SCRIPTS_DIR, "capture-session.mjs"),
+  "utf8",
+);

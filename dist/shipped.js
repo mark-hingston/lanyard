@@ -14,7 +14,7 @@
 // `Record<filename, content>` because VS Code discovers them as siblings
 // under `.github/agents/`, not nested.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.REGENERATE_INSTRUCTIONS_SCRIPT = exports.CUSTOM_AGENT_FILES = exports.ACREADINESS_ASSESS_FILES = exports.AUDIT_INTEGRITY_FILES = exports.TICKET_TO_PR_FILES = exports.REFINE_FILES = exports.SEM_FILES = exports.SKILL_CREATOR_FILES = exports.FIND_SKILLS_FILES = exports.REVIEW_FILES = exports.REFACTOR_INSTRUCTIONS_FILES = void 0;
+exports.CAPTURE_SESSION_SCRIPT = exports.REGENERATE_INSTRUCTIONS_SCRIPT = exports.CUSTOM_AGENT_FILES = exports.ACREADINESS_ASSESS_FILES = exports.AUDIT_INTEGRITY_FILES = exports.TICKET_TO_PR_FILES = exports.REFINE_FILES = exports.SEM_FILES = exports.SKILL_CREATOR_FILES = exports.FIND_SKILLS_FILES = exports.REVIEW_FILES = exports.REFACTOR_INSTRUCTIONS_FILES = void 0;
 const fs_1 = require("fs");
 const path_1 = require("path");
 const SKILLS_DIR = (0, path_1.join)(__dirname, "skills");
@@ -62,3 +62,11 @@ exports.AUDIT_INTEGRITY_FILES = readSkillDir("audit-integrity");
 exports.ACREADINESS_ASSESS_FILES = readSkillDir("acreadiness-assess");
 exports.CUSTOM_AGENT_FILES = readAgentDir();
 exports.REGENERATE_INSTRUCTIONS_SCRIPT = (0, fs_1.readFileSync)((0, path_1.join)(SCRIPTS_DIR, "regenerate-instructions.mjs"), "utf8");
+// Hook-driven self-learning capture. Reads the actual Copilot CLI hook
+// payloads (user prompts, tool results, errors) — strictly richer than the
+// lean-ctx events regenerate-instructions.mjs mines, because it has the
+// actual prompt and error text instead of just slugs. Writes a managed
+// `<!-- managed-by:hooks start/end -->` block in the same instructions file;
+// capture-session runs last on sessionEnd so its block wins over any
+// lanyard-block the lean-ctx miner produced.
+exports.CAPTURE_SESSION_SCRIPT = (0, fs_1.readFileSync)((0, path_1.join)(SCRIPTS_DIR, "capture-session.mjs"), "utf8");

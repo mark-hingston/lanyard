@@ -20,7 +20,7 @@ After running Lanyard your repository includes:
 * Workspace instruction files
 * Agent skills
 * Custom VS Code agents
-* Self-learning instruction regeneration
+* Self-learning instruction regeneration (lean-ctx events + Copilot CLI hook payloads)
 * Copilot CLI hooks
 
 Existing configuration is preserved wherever possible, and timestamped backups are created before JSON files are overwritten.
@@ -85,6 +85,7 @@ At the end of the run you'll see exactly which files were written.
 
 * `.github/hooks/hooks.json`
 * `.github/scripts/regenerate-instructions.mjs`
+* `.github/scripts/capture-session.mjs`
 
 ## Instructions
 

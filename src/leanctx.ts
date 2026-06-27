@@ -20,6 +20,7 @@ import {
   LEAN_CTX_SERVER_NAME,
   SELF_LEARNING_INSTRUCTIONS_FRONT_MATTER,
   SELF_LEARNING_INSTRUCTIONS_PATH,
+  SELF_LEARNING_CAPTURE_SCRIPT_PATH,
   SELF_LEARNING_REGENERATOR_SCRIPT_PATH,
   SKILL_CREATOR_SKILL_DIR,
   VSCODE_SETTINGS_CONFIG_PATH,
@@ -39,6 +40,7 @@ import {
   FIND_SKILLS_FILES,
   REFACTOR_INSTRUCTIONS_FILES,
   REFINE_FILES,
+  CAPTURE_SESSION_SCRIPT,
   REGENERATE_INSTRUCTIONS_SCRIPT,
   SEM_FILES,
   SKILL_CREATOR_FILES,
@@ -65,7 +67,13 @@ interface HookCommand {
   timeoutSec: number;
 }
 
-type HookName = "preToolUse" | "postToolUse" | "sessionEnd";
+type HookName =
+  | "preToolUse"
+  | "postToolUse"
+  | "userPromptSubmitted"
+  | "errorOccurred"
+  | "sessionStart"
+  | "sessionEnd";
 
 interface HooksConfig {
   version?: number;
@@ -223,6 +231,20 @@ const SELF_LEARNING_MANAGED_BLOCK_END = "<!-- managed-by:lanyard end -->";
 const SELF_LEARNING_MANAGED_BLOCK_INITIAL =
   "## Learned patterns\n\n_No repeating patterns detected yet. Mined from lean-ctx events since last session._";
 
+// Per-event stdin pattern for capture-session.mjs. The hook receives the
+// payload via stdin; we tee it into the script. The script is fire-and-forget
+// (backgrounded with & disown) so it never blocks the IDE on slow disk I/O.
+const captureSessionBash = (event: string) =>
+  `PAYLOAD=$(cat); echo "$PAYLOAD" | node .github/scripts/capture-session.mjs ${event} & disown $!`;
+const captureSessionPowershell = (event: string) =>
+  [
+    "$payload = [Console]::In.ReadToEnd();",
+    "$cwd = (Get-Location).Path;",
+    "$temp = [System.IO.Path]::GetTempFileName();",
+    "Set-Content -Path $temp -Value $payload -NoNewline -Encoding utf8;",
+    `Start-Process -FilePath node -WorkingDirectory $cwd -ArgumentList '.github/scripts/capture-session.mjs', '${event}', '--payload-file', $temp -WindowStyle Hidden`,
+  ].join(" ");
+
 const REQUIRED_HOOKS: Record<HookName, HookCommand[]> = {
   preToolUse: [
     {
@@ -245,15 +267,58 @@ const REQUIRED_HOOKS: Record<HookName, HookCommand[]> = {
       powershell: "lean-ctx hook observe",
       timeoutSec: 5,
     },
+    {
+      type: "command",
+      bash: captureSessionBash("postToolUse"),
+      powershell: captureSessionPowershell("postToolUse"),
+      cwd: ".",
+      timeoutSec: 2,
+    },
   ],
-  // Closes the self-learning loop: lean-ctx captures data on every tool call
-  // (postToolUse → observe); on session end this script mines those events and
-  // rewrites the Learned patterns block Copilot reads next session.
+  userPromptSubmitted: [
+    {
+      type: "command",
+      bash: captureSessionBash("userPromptSubmitted"),
+      powershell: captureSessionPowershell("userPromptSubmitted"),
+      cwd: ".",
+      timeoutSec: 2,
+    },
+  ],
+  errorOccurred: [
+    {
+      type: "command",
+      bash: captureSessionBash("errorOccurred"),
+      powershell: captureSessionPowershell("errorOccurred"),
+      cwd: ".",
+      timeoutSec: 2,
+    },
+  ],
+  sessionStart: [
+    {
+      type: "command",
+      bash: captureSessionBash("sessionStart"),
+      powershell: captureSessionPowershell("sessionStart"),
+      cwd: ".",
+      timeoutSec: 2,
+    },
+  ],
+  // Two writers run in order:
+  //   1. regenerate-instructions.mjs — mines lean-ctx events for tool usage
+  //      and contradiction counts (low signal, but free).
+  //   2. capture-session.mjs — writes the rich lessons block. It deliberately
+  //      overwrites the lanyard-managed block above with its own managed
+  //      block (managed-by:hooks), so the hook data wins.
   sessionEnd: [
     {
       type: "command",
       bash: `node .github/scripts/regenerate-instructions.mjs`,
       powershell: `node .github/scripts/regenerate-instructions.mjs`,
+      timeoutSec: 15,
+    },
+    {
+      type: "command",
+      bash: `node .github/scripts/capture-session.mjs sessionEnd`,
+      powershell: `node .github/scripts/capture-session.mjs sessionEnd`,
       timeoutSec: 15,
     },
   ],
@@ -277,6 +342,7 @@ export async function configureLeanCtxWorkspace(
   files.push(await configureBootstrapConfigInstructions(workspaceRoot));
   files.push(await configureSelfLearningInstructions(workspaceRoot));
   files.push(await configureSelfLearningRegenerator(workspaceRoot));
+  files.push(await configureSelfLearningCapture(workspaceRoot));
   // Ship third-party skills (find-skills, skill-creator, sem, audit-integrity,
   // acreadiness-assess) before the refactor-instructions skill — they have
   // no audit dependency, they're just made available to the agent. sem is
@@ -687,6 +753,22 @@ async function configureSelfLearningRegenerator(
 
   return {
     label: "Self-learning regenerator (sessionEnd hook)",
+    file: {
+      path: filePath,
+      ...fileWrite,
+    } satisfies FileMutationResult,
+  };
+}
+
+async function configureSelfLearningCapture(
+  workspaceRoot: string,
+): Promise<LabeledFileMutationResult> {
+  const filePath = join(workspaceRoot, SELF_LEARNING_CAPTURE_SCRIPT_PATH);
+  const next = CAPTURE_SESSION_SCRIPT;
+  const fileWrite = await writeTextFile(filePath, next);
+
+  return {
+    label: "Self-learning capture (sessionStart/userPromptSubmitted/postToolUse/errorOccurred/sessionEnd hooks)",
     file: {
       path: filePath,
       ...fileWrite,
