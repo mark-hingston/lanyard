@@ -173,12 +173,14 @@ Install whichever servers your project requires (Pyright, gopls, rust-analyzer, 
 Lanyard intentionally does not:
 
 * Create `AGENTS.md` or `CLAUDE.md`
-* Install runtime tooling
+* Install language servers (Pyright, gopls, rust-analyzer, clangd, etc.)
 * Commit changes
 * Push to Git
 * Merge pull requests
 * Modify Git history
 * Send telemetry
+
+> **Note:** Lanyard _does_ attempt to install the [`lean-ctx`](https://leanctx.com) CLI on your behalf when it isn't already on `PATH`, because the MCP server entries and pre/post-tool hooks Lanyard writes hard-depend on it. See [LeanCTX](#leanctx) above for details. Skip the auto-install in air-gapped CI by setting `LEAN_CTX_SKIP_INSTALL=1`, or override the install commands via `LEAN_CTX_INSTALL_COMMANDS` (newline-separated, e.g. `"npm install -g my-internal-lean-ctx\ncurl -fsSL https://internal/install.sh | sh"`).
 
 ---
 

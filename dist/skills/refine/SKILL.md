@@ -34,6 +34,8 @@ The Atlassian MCP server is the only supported interface for this skill. There i
 
 The rubric ships with this skill at `references/refine-rubric.yml` (relative to this `SKILL.md`). It is generic — a definition-of-ready check that does not assume any team-specific platforms, dependencies, or process. The skill treats the YAML as authoritative: do not silently add, drop, or reweight criteria, and do not invent criteria of your own. If the rubric needs to change, that is a Lanyard upgrade, not a session-time edit.
 
+Four enrichment criteria (`architecture-drawn`, `interfaces-defined`, `state-transitions`, `invariants-specified`) are **soft gates** — they warn when missing but accept a skip with a reason. They factor into the total score but the threshold stays low enough that skipping all four enrichment criteria with valid reasons does not block the ticket.
+
 ### Score buckets
 
 The skill uses the same buckets for any rubric, derived from `threshold` and `maxScore`:
@@ -80,6 +82,14 @@ Do not bundle multiple gaps into a single message. The user is reviewing each se
 For ACs (which are typically the 2-point criterion in the shipped rubric), prefer BDD scenarios when the behaviour is easiest to verify as user-facing. Numbered criteria are acceptable for infrastructure, refactors, and technical debt, but each item must still be independently testable.
 
 Reject vague criteria in the user's proposed text: `it should work`, `improve performance` without a target, `make it better`. Push back with the testable version before accepting.
+
+**Enrichment criteria (soft gates):** The four spec-artifact criteria (`architecture-drawn`, `interfaces-defined`, `state-transitions`, `invariants-specified`) are handled differently. They are checked when score is below threshold, but the user may skip any with a reason. For each:
+
+1. State the failing criterion and suggest what to add (e.g. a mermaid diagram, a state table, interface signatures)
+2. Accept a deliberate skip: "This is a config change — no architecture to draw." or "Pure stateless function — no state transitions."
+3. Do not push back on a reasoned skip. These are soft gates; the reason is what matters, not the artifact.
+
+If the score reaches `threshold` without fixing enrichment criteria (i.e. the user skipped all four with valid reasons), proceed to the handoff — do not loop further.
 
 ### Step 5 — Branch on issue type
 
@@ -128,7 +138,7 @@ This is a single combined step: rewrite the ticket, then plan it.
 **8b — Hand off to the Plan agent.** After the rewrite is posted, hand off to VS Code's built-in **Plan** agent in the same session:
 
 - Provide the ticket key, URL, current summary, full description (post-rewrite), and the rubric (so the plan agent respects DoR constraints)
-- Explicitly tell the Plan agent: "Produce an implementation plan for this ticket. Include a `Summary`, `Implementation steps`, and `Verification steps` section. The plan will be posted back into the ticket as `## Tech notes` — write it as a single markdown block, not as a multi-turn conversation."
+- Explicitly tell the Plan agent: "Produce an implementation plan for this ticket. Include a `Summary`, `Implementation steps`, and `Verification steps` section. Where applicable, the plan should signal the architecture (components and their connections), interfaces (public surfaces between components), state transitions (stateful flows), and invariants (constraints that must hold). The plan will be posted back into the ticket as `## Tech notes` — write it as a single markdown block, not as a multi-turn conversation."
 - If you are not in a session that supports `/plan`, stop here and instruct the user to run `/plan` themselves, pasting the ticket key/URL/summary, and to return to this skill with the plan output for Step 8c.
 
 The Plan agent writes its output to `/memories/session/plan.md` by default — that is a per-session scratch path which is cleared at session end. Do not rely on it as durable storage; the durable record is Step 8c.
@@ -182,6 +192,7 @@ Before reporting completion, confirm:
 - [ ] All rubric criteria were scored (sum to a value in `0..maxScore`)
 - [ ] If score was below `threshold`, the refinement loop ran one question at a time
 - [ ] Vague ACs (`it should work`, `make it better`) were rejected, not accepted
+- [ ] Enrichment criteria are either filled or deliberately skipped with a written reason
 - [ ] At least one Jira component is set
 - [ ] The rewritten ticket uses short headings and avoids the banned filler phrases
 - [ ] If direction changed during refinement, rejected-tool history was scrubbed
@@ -192,6 +203,9 @@ Before reporting completion, confirm:
 ## Common pitfalls
 
 - **Score a ticket as ready without actually fixing the gaps.** Rubric scoring is a gate, not a vibe. If a criterion fails, run the loop.
+- **Skip enrichment criteria without a reason.** Soft gates means you *can* skip, not that you *should*. Push for a reason, not the artifact — a silent skip voids the warning and defeats the purpose.
+- **Burn loop turns on enrichment before the hard criteria are fixed.** Fix the blocking gaps first (summary, ACs, scope). Enrichment is a polish step; don't sequence it ahead of substance.
+- **Forbid the Plan agent from producing enrichment artifacts.** The enrichment criteria feed the `## Tech notes` section. When handing off to the Plan agent, mention architecture/interfaces/state/invariants as signals the plan should address where applicable.
 - **Bundle multiple rubric gaps into one question.** One criterion per question; the user is reviewing section by section.
 - **Accept vague ACs.** `it should work` is not an acceptance criterion. Push back with the testable version.
 - **Skip the issue-type branch.** Bugs, stories, spikes, and tech-debt tickets all need different description shapes. Pick the right one.
@@ -206,7 +220,7 @@ Before reporting completion, confirm:
 
 The shape is identical for any ticket type; only the issue-type template and rubric criteria change.
 
-**Before refinement (score: 2/8):**
+**Before refinement (score: 2/12):**
 
 > **Summary:** Fix HyperPay bug
 >
@@ -221,8 +235,12 @@ Score breakdown (criterion `id` → result):
 - `component-identified` — fail
 - `scope-bounded` — partial (vague but bounded enough)
 - `no-blockers` — fail (no info to judge)
+- `architecture-drawn` — fail (no diagram, no component map)
+- `interfaces-defined` — fail (no interface or event schema)
+- `state-transitions` — fail (no state enumeration)
+- `invariants-specified` — fail (no invariants)
 
-**After refinement (score: 7/8, then Plan agent run, `## Tech notes` appended):**
+**After refinement (score: 7/12 — enrichment all skipped with valid reasons, then Plan agent run, `## Tech notes` appended):**
 
 > **Summary:** HyperPay redirect fails silently when 3DS challenge is cancelled by user
 >
@@ -267,7 +285,12 @@ Score breakdown (criterion `id` → result):
 > - Manual: cancel a 3DS challenge in staging; confirm `payment_failed` event fires and the success screen is not shown.
 > - Manual: complete a 3DS challenge; confirm `payment_captured` event fires and the success screen is shown.
 
-Score breakdown after rewrite: all criteria pass → **7/8, ready**, plan posted.
+Score breakdown after rewrite:
+
+- Original criteria: all pass (7 of 7 possible)
+- Enrichment criteria: all skipped with reasons — `architecture-drawn` skipped ("contained single-method change"), `interfaces-defined` skipped ("existing interface unchanged"), `state-transitions` skipped ("branching logic, not state"), `invariants-specified` skipped ("trivial enough")
+
+→ **7/12, ready (at threshold)**, plan posted.
 
 ## The bottom line
 

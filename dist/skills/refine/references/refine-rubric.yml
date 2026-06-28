@@ -1,8 +1,8 @@
 rubric:
   name: Refine readiness
-  version: 1
+  version: 2
   threshold: 7
-  maxScore: 8
+  maxScore: 12
   criteria:
     - id: summary-specific
       label: Specific, unambiguous summary
@@ -47,3 +47,31 @@ rubric:
       passWhen: >
         No open dependency is still blocking implementation at the time the
         ticket would be picked up.
+    - id: architecture-drawn
+      label: Architecture diagram
+      points: 1
+      passWhen: >
+        A diagram (mermaid, ASCII, or image) shows the major components and
+        their connections. All components named in the ticket are represented.
+        Soft criterion — skip with a reason for trivial changes.
+    - id: interfaces-defined
+      label: Interfaces defined
+      points: 1
+      passWhen: >
+        Public interfaces for each component are enumerated — function
+        signatures, type exports, message schemas, API routes, event shapes.
+        Soft criterion — skip with a reason for pure internal refactors.
+    - id: state-transitions
+      label: State transitions specified
+      points: 1
+      passWhen: >
+        For each stateful component, states are enumerated, events are
+        listed, and transitions between states are specified. Soft criterion
+        — skip with a reason for stateless transformations.
+    - id: invariants-specified
+      label: Invariants specified
+      points: 1
+      passWhen: >
+        At least one explicit invariant is stated — a pre/post condition,
+        business rule, data constraint, or concurrency guard. Soft criterion
+        — skip with a reason for trivial tickets.

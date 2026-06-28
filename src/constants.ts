@@ -12,6 +12,22 @@ export const GRAFANA_DOC_URL =
   "https://grafana.com/docs/grafana-cloud/machine-learning/assistant/configure/cloud-mcp/";
 
 export const LEAN_CTX_INSTALL_URL = "https://leanctx.com/install.sh";
+// Newline-separated list of fallback commands Lanyard tries, in order, to
+// install the lean-ctx CLI when it is not found on PATH. Override with the
+// LEAN_CTX_INSTALL_COMMANDS env var (newline-separated, e.g. to point at an
+// internal mirror or a pinned package manager). The default order prefers npm
+// (cross-platform, no curl-pipe) and falls back to the official installer
+// script. Newline (not `|`) is the separator because `|` appears inside shell
+// install commands and would be ambiguous.
+const DEFAULT_LEAN_CTX_INSTALL_COMMANDS = [
+  "npm install -g --no-fund --no-audit lean-ctx-bin",
+  `curl -fsSL ${LEAN_CTX_INSTALL_URL} | sh`,
+];
+export const LEAN_CTX_INSTALL_COMMANDS: readonly string[] =
+  (process.env.LEAN_CTX_INSTALL_COMMANDS ?? DEFAULT_LEAN_CTX_INSTALL_COMMANDS.join("\n"))
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 
 export const VSCODE_MCP_CONFIG_PATH = ".vscode/mcp.json";
 export const VSCODE_EXTENSIONS_CONFIG_PATH = ".vscode/extensions.json";

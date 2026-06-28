@@ -2,8 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runInstructionsHygiene = runInstructionsHygiene;
 exports.warnIfLeanCtxMissing = warnIfLeanCtxMissing;
+exports.ensureLeanCtxInstalled = ensureLeanCtxInstalled;
 const shell_1 = require("./shell");
 const constants_1 = require("./constants");
+const SHELL_OPERATOR_RE = /[|&;]|\$\(|>|<|`/;
 // The prompt that drives a non-interactive Copilot run to execute the
 // refactor-instructions skill against the repo's .github/instructions/ tree.
 // Copilot loads the skill from .github/skills/refactor-instructions/; this prompt
@@ -66,4 +68,80 @@ async function warnIfLeanCtxMissing() {
         return;
     }
     console.warn(`\n[warn] lean-ctx is not on PATH; the workspace MCP servers won't resolve until it's installed. Install it:\n\n  curl -fsSL ${constants_1.LEAN_CTX_INSTALL_URL} | sh\n\nOr, if you have a JS package manager:\n\n  npm install -g ${constants_1.LEAN_CTX_NPM_PACKAGE}\n`);
+}
+/**
+ * Make sure the lean-ctx CLI is on PATH. The bootstrap writes `.github/mcp.json`
+ * and `.vscode/mcp.json` entries that reference a `lean-ctx` MCP server, plus
+ * pre-tool-use / post-tool-use hooks that shell out to `lean-ctx hook ...`.
+ * Those will hard-fail at runtime in the user's IDE if lean-ctx is missing, so
+ * detect here and try to install it before we hand control back.
+ *
+ * Behaviour:
+ *   - Already installed → silent no-op.
+ *   - LEAN_CTX_SKIP_INSTALL=1 (or the deprecated LANYARD_SKIP_LEAN_CTX_INSTALL=1)
+ *     → falls through to warnIfLeanCtxMissing(). Use this for air-gapped CI.
+ *   - LEAN_CTX_INSTALL_COMMANDS env var (newline-separated, e.g. "npm install
+ *     -g my-internal-lean-ctx\ncurl -fsSL https://internal/install.sh | sh")
+ *     → overrides the default command list.
+ *   - Otherwise tries the default list in order: `npm install -g lean-ctx-bin`
+ *     (cross-platform, no curl-pipe), then the official
+ *     `curl -fsSL https://leanctx.com/install.sh | sh`. After each attempt
+ *     re-checks `commandExists("lean-ctx")`; the first command that puts it on
+ *     PATH wins.
+ *   - If every command fails, falls back to warnIfLeanCtxMissing() so the user
+ *     always sees the manual-install command.
+ */
+async function ensureLeanCtxInstalled() {
+    if (await (0, shell_1.commandExists)("lean-ctx")) {
+        return;
+    }
+    const skipEnv = process.env.LEAN_CTX_SKIP_INSTALL ??
+        process.env.LANYARD_SKIP_LEAN_CTX_INSTALL ??
+        "";
+    if (skipEnv === "1" || skipEnv.toLowerCase() === "true") {
+        return warnIfLeanCtxMissing();
+    }
+    console.log("\nlean-ctx was not found on PATH. The workspace MCP servers and hooks " +
+        "Lanyard just wrote depend on it, so attempting an automatic install…");
+    for (const commandLine of constants_1.LEAN_CTX_INSTALL_COMMANDS) {
+        const trimmed = commandLine.trim();
+        if (trimmed.length === 0) {
+            continue;
+        }
+        const usesShell = SHELL_OPERATOR_RE.test(trimmed);
+        const argv = usesShell ? [] : splitCommandLine(trimmed);
+        const head = usesShell ? trimmed.split(/\s+/)[0] : argv[0];
+        if (!head) {
+            continue;
+        }
+        console.log(`\n[lanyard] Running: ${trimmed}`);
+        const probe = await (0, shell_1.runCommand)(head, ["--version"], { allowNonZero: true }).catch(() => null);
+        if (!probe || probe.code !== 0) {
+            console.log(`[lanyard] Skipping \`${head}\` — not available on this machine.`);
+            continue;
+        }
+        const exitCode = usesShell
+            ? await (0, shell_1.runShellCommand)(trimmed)
+            : await (0, shell_1.runInteractiveCommand)(argv[0], argv.slice(1));
+        if (exitCode !== 0) {
+            console.warn(`[lanyard] \`${trimmed}\` exited with code ${exitCode ?? "unknown"}; trying the next option.`);
+            continue;
+        }
+        if (await (0, shell_1.commandExists)("lean-ctx")) {
+            console.log(`[lanyard] lean-ctx installed successfully via \`${head}\`.`);
+            return;
+        }
+        console.warn(`[lanyard] \`${head}\` ran successfully but lean-ctx is still not on PATH. ` +
+            `It may have been installed to a location not on $PATH (try re-opening your shell ` +
+            `or check \`npm config get prefix\`).`);
+    }
+    await warnIfLeanCtxMissing();
+}
+function splitCommandLine(value) {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+        return [];
+    }
+    const parts = trimmed.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) ?? [trimmed];
+    return parts.map((part) => part.replace(/^["']|["']$/g, ""));
 }

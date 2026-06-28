@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SERVERS = exports.LEAN_CTX_PLAN_AGENT_TOOLS = exports.LEAN_CTX_NPM_PACKAGE = exports.LEAN_CTX_SERVER_NAME = exports.SELF_LEARNING_INSTRUCTIONS_FRONT_MATTER = exports.SELF_LEARNING_CAPTURE_SCRIPT_PATH = exports.SELF_LEARNING_REGENERATOR_SCRIPT_PATH = exports.SELF_LEARNING_INSTRUCTIONS_PATH = exports.CUSTOM_AGENTS_DIR = exports.ACREADINESS_ASSESS_SKILL_DIR = exports.AUDIT_INTEGRITY_SKILL_DIR = exports.TICKET_TO_PR_SKILL_DIR = exports.REFINE_SKILL_DIR = exports.SEM_SKILL_DIR = exports.SKILL_CREATOR_SKILL_DIR = exports.FIND_SKILLS_SKILL_DIR = exports.REVIEW_SKILL_DIR = exports.REFACTOR_INSTRUCTIONS_SKILL_DIR = exports.COPILOT_INSTRUCTIONS_INDEX_FRONT_MATTER = exports.COPILOT_INSTRUCTIONS_INDEX_PATH = exports.COPILOT_INSTRUCTIONS_PATH = exports.COPILOT_HOOKS_CONFIG_PATH = exports.COPILOT_ALTERNATE_WORKSPACE_LSP_CONFIG_PATH = exports.COPILOT_WORKSPACE_LSP_CONFIG_PATH = exports.COPILOT_ALTERNATE_WORKSPACE_MCP_CONFIG_PATH = exports.COPILOT_WORKSPACE_MCP_CONFIG_PATH = exports.VSCODE_SETTINGS_CONFIG_PATH = exports.VSCODE_EXTENSIONS_CONFIG_PATH = exports.VSCODE_MCP_CONFIG_PATH = exports.LEAN_CTX_INSTALL_URL = exports.GRAFANA_DOC_URL = exports.GRAFANA_STACK_URL = exports.GRAFANA_MCP_URL = exports.ATLASSIAN_IDE_DOC_URL = exports.ATLASSIAN_GETTING_STARTED_DOC_URL = exports.ATLASSIAN_MCP_URL = void 0;
+exports.SERVERS = exports.LEAN_CTX_PLAN_AGENT_TOOLS = exports.LEAN_CTX_NPM_PACKAGE = exports.LEAN_CTX_SERVER_NAME = exports.SELF_LEARNING_INSTRUCTIONS_FRONT_MATTER = exports.SELF_LEARNING_CAPTURE_SCRIPT_PATH = exports.SELF_LEARNING_REGENERATOR_SCRIPT_PATH = exports.SELF_LEARNING_INSTRUCTIONS_PATH = exports.CUSTOM_AGENTS_DIR = exports.ACREADINESS_ASSESS_SKILL_DIR = exports.AUDIT_INTEGRITY_SKILL_DIR = exports.TICKET_TO_PR_SKILL_DIR = exports.REFINE_SKILL_DIR = exports.SEM_SKILL_DIR = exports.SKILL_CREATOR_SKILL_DIR = exports.FIND_SKILLS_SKILL_DIR = exports.REVIEW_SKILL_DIR = exports.REFACTOR_INSTRUCTIONS_SKILL_DIR = exports.COPILOT_INSTRUCTIONS_INDEX_FRONT_MATTER = exports.COPILOT_INSTRUCTIONS_INDEX_PATH = exports.COPILOT_INSTRUCTIONS_PATH = exports.COPILOT_HOOKS_CONFIG_PATH = exports.COPILOT_ALTERNATE_WORKSPACE_LSP_CONFIG_PATH = exports.COPILOT_WORKSPACE_LSP_CONFIG_PATH = exports.COPILOT_ALTERNATE_WORKSPACE_MCP_CONFIG_PATH = exports.COPILOT_WORKSPACE_MCP_CONFIG_PATH = exports.VSCODE_SETTINGS_CONFIG_PATH = exports.VSCODE_EXTENSIONS_CONFIG_PATH = exports.VSCODE_MCP_CONFIG_PATH = exports.LEAN_CTX_INSTALL_COMMANDS = exports.LEAN_CTX_INSTALL_URL = exports.GRAFANA_DOC_URL = exports.GRAFANA_STACK_URL = exports.GRAFANA_MCP_URL = exports.ATLASSIAN_IDE_DOC_URL = exports.ATLASSIAN_GETTING_STARTED_DOC_URL = exports.ATLASSIAN_MCP_URL = void 0;
 exports.ATLASSIAN_MCP_URL = "https://mcp.atlassian.com/v1/mcp/authv2";
 exports.ATLASSIAN_GETTING_STARTED_DOC_URL = "https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/";
 exports.ATLASSIAN_IDE_DOC_URL = "https://support.atlassian.com/atlassian-rovo-mcp-server/docs/setting-up-ides/";
@@ -8,6 +8,21 @@ exports.GRAFANA_MCP_URL = "https://mcp.grafana.com/mcp";
 exports.GRAFANA_STACK_URL = "https://puregym.grafana.net/";
 exports.GRAFANA_DOC_URL = "https://grafana.com/docs/grafana-cloud/machine-learning/assistant/configure/cloud-mcp/";
 exports.LEAN_CTX_INSTALL_URL = "https://leanctx.com/install.sh";
+// Newline-separated list of fallback commands Lanyard tries, in order, to
+// install the lean-ctx CLI when it is not found on PATH. Override with the
+// LEAN_CTX_INSTALL_COMMANDS env var (newline-separated, e.g. to point at an
+// internal mirror or a pinned package manager). The default order prefers npm
+// (cross-platform, no curl-pipe) and falls back to the official installer
+// script. Newline (not `|`) is the separator because `|` appears inside shell
+// install commands and would be ambiguous.
+const DEFAULT_LEAN_CTX_INSTALL_COMMANDS = [
+    "npm install -g --no-fund --no-audit lean-ctx-bin",
+    `curl -fsSL ${exports.LEAN_CTX_INSTALL_URL} | sh`,
+];
+exports.LEAN_CTX_INSTALL_COMMANDS = (process.env.LEAN_CTX_INSTALL_COMMANDS ?? DEFAULT_LEAN_CTX_INSTALL_COMMANDS.join("\n"))
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 exports.VSCODE_MCP_CONFIG_PATH = ".vscode/mcp.json";
 exports.VSCODE_EXTENSIONS_CONFIG_PATH = ".vscode/extensions.json";
 exports.VSCODE_SETTINGS_CONFIG_PATH = ".vscode/settings.json";

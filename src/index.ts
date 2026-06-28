@@ -8,8 +8,8 @@ import { SERVERS } from "./constants";
 import { configureLeanCtxWorkspace } from "./leanctx";
 import { configureWorkspaceLsp } from "./lsp";
 import {
+  ensureLeanCtxInstalled,
   runInstructionsHygiene,
-  warnIfLeanCtxMissing,
 } from "./post-bootstrap";
 import {
   FileMutationResult,
@@ -25,6 +25,11 @@ async function main(): Promise<void> {
 
   console.log("Lanyard");
   console.log(`Workspace: ${WORKSPACE}`);
+
+  // Make sure the lean-ctx CLI is on PATH before we write any MCP server or
+  // hook config that references it — otherwise those config entries would
+  // silently point at a binary that isn't installed yet.
+  await ensureLeanCtxInstalled();
 
   const vscodeResult = await configureVsCodeWorkspace(WORKSPACE, SERVERS);
   const copilotResult = await configureCopilot(WORKSPACE, SERVERS);
@@ -50,8 +55,6 @@ async function main(): Promise<void> {
   failIfVerificationFailed(verifications);
 
   printSummary(writtenFiles);
-
-  warnIfLeanCtxMissing();
 
   // The refactor-instructions skill is now on disk in .github/skills/. Drive a
   // non-interactive Copilot run to execute it against the instructions tree we
