@@ -163,26 +163,32 @@ const captureSessionPowershell = (event) => [
     "Set-Content -Path $temp -Value $payload -NoNewline -Encoding utf8;",
     `Start-Process -FilePath node -WorkingDirectory $cwd -ArgumentList '.github/scripts/capture-session.mjs', '${event}', '--payload-file', $temp -WindowStyle Hidden`,
 ].join(" ");
+// Wrap a `lean-ctx <subcommand>` hook in a PATH-existence guard so a missing
+// `lean-ctx` binary never blocks the IDE's tool dispatch. Without this guard
+// a `preToolUse` hook that errors would refuse the tool call entirely; with
+// it, missing-binary becomes a silent skip plus a one-line stderr warning.
+const leanCtxHookBash = (subcommand) => `command -v lean-ctx >/dev/null 2>&1 || { echo '[skip] lean-ctx not on PATH, skipping hook' >&2; exit 0; }; lean-ctx ${subcommand}`;
+const leanCtxHookPowershell = (subcommand) => `if (-not (Get-Command lean-ctx -ErrorAction SilentlyContinue)) { Write-Warning 'lean-ctx not on PATH, skipping hook'; exit 0 }; lean-ctx ${subcommand}`;
 const REQUIRED_HOOKS = {
     preToolUse: [
         {
             type: "command",
-            bash: "lean-ctx hook rewrite",
-            powershell: "lean-ctx hook rewrite",
+            bash: leanCtxHookBash("hook rewrite"),
+            powershell: leanCtxHookPowershell("hook rewrite"),
             timeoutSec: 15,
         },
         {
             type: "command",
-            bash: "lean-ctx hook redirect",
-            powershell: "lean-ctx hook redirect",
+            bash: leanCtxHookBash("hook redirect"),
+            powershell: leanCtxHookPowershell("hook redirect"),
             timeoutSec: 5,
         },
     ],
     postToolUse: [
         {
             type: "command",
-            bash: "lean-ctx hook observe",
-            powershell: "lean-ctx hook observe",
+            bash: leanCtxHookBash("hook observe"),
+            powershell: leanCtxHookPowershell("hook observe"),
             timeoutSec: 5,
         },
         {
